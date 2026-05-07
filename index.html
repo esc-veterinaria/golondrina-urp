@@ -460,7 +460,6 @@ const $=id=>document.getElementById(id);
 const gv=id=>($( id)?.value)||'';
 let p2ok=false;
 let p2mode='insert'; // 'insert' o 'update'
-let p2desbloqueadoSesion=false; // true = ya se abrió P2 en esta sesión sin necesidad de lock
 let fotoLlegadaURL='';
 let fotoLibURL='';
 
@@ -472,18 +471,8 @@ function swt(t){
 }
 
 function reqP2(){
-  // Primera vez en la sesión: acceso libre, no pide contraseña
-  if(!p2ok && !p2desbloqueadoSesion){
-    p2desbloqueadoSesion=true;
-    p2ok=true;
-    p2mode='insert';
-    $('t-p2').innerHTML='🔬 Parte 2 · Evaluación Veterinaria';
-    swt('p2');
-    return;
-  }
-  // Ya desbloqueado en esta sesión
+  // Siempre pide contraseña + N° de ficha
   if(p2ok){swt('p2');return;}
-  // Recarga/reingreso: pide contraseña + ficha
   $('pwd').value='';$('pwd-ficha').value='';$('pwd-err').textContent='';
   $('lock').style.display='flex';
   setTimeout(()=>$('pwd').focus(),80);
