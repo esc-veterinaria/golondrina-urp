@@ -488,8 +488,7 @@ async function checkPwd(){
   $('lock-btn').innerHTML='<span class="spinner"></span>Buscando ficha...';
 
   try{
-    const res=await fetch(`${GAS_URL}?action=get&nFicha=${encodeURIComponent(ficha)}`);
-    const json=await res.json();
+    const json=await gasGet({action:'get',nFicha:ficha});
     if(!json.ok){
       $('pwd-err').textContent=json.error||`Ficha "${ficha}" no encontrada.`;
       $('lock-btn').disabled=false;$('lock-btn').textContent='Cargar registro';
@@ -679,8 +678,63 @@ function clearFoto(inputId,previewId,uploadId,imgId,nameId){
   else{fotoLibURL='';$('furl-lib').style.display='none';}
 }
 
-// Convierte File a base64 para enviarlo al Apps Script
-async function fotoABase64(inputId){
+// ── HELPERS APPS SCRIPT (CORS-safe) ─────────────────────────────
+// GET via JSONP (evita CORS en lectura)
+function gasGet(params){
+  return new Promise((resolve,reject)=>{
+    const cbName='_gasCb'+Date.now();
+    const url=GAS_URL+'?'+new URLSearchParams({...params,callback:cbName});
+    const script=document.createElement('script');
+    const timer=setTimeout(()=>{
+      delete window[cbName];document.head.removeChild(script);
+      reject(new Error('Timeout'));
+    },15000);
+    window[cbName]=data=>{
+      clearTimeout(timer);
+      delete window[cbName];
+      try{document.head.removeChild(script);}catch(_){}
+      resolve(data);
+    };
+    script.src=url;
+    script.onerror=()=>{clearTimeout(timer);delete window[cbName];reject(new Error('Error de red'));};
+    document.head.appendChild(script);
+  });
+}
+// POST via form submit oculto + JSONP para recibir respuesta
+function gasPost(payload){
+  return new Promise((resolve,reject)=>{
+    const cbName='_gasCb'+Date.now();
+    const timer=setTimeout(()=>{
+      delete window[cbName];reject(new Error('Timeout'));
+    },60000);
+    window[cbName]=data=>{
+      clearTimeout(timer);delete window[cbName];resolve(data);
+    };
+    const form=document.createElement('form');
+    form.method='POST';
+    form.action=GAS_URL+'?callback='+cbName;
+    form.target='_gas_iframe_'+cbName;
+    form.style.display='none';
+    const inp=document.createElement('input');
+    inp.type='hidden';inp.name='payload';inp.value=JSON.stringify(payload);
+    form.appendChild(inp);
+    const iframe=document.createElement('iframe');
+    iframe.name=form.target;iframe.style.display='none';
+    iframe.onload=()=>{
+      // El iframe cargó — si el callback no fue llamado en 2s, algo falló
+      setTimeout(()=>{
+        if(window[cbName]){
+          clearTimeout(timer);delete window[cbName];
+          try{document.body.removeChild(iframe);document.body.removeChild(form);}catch(_){}
+          reject(new Error('Sin respuesta del servidor'));
+        }
+      },2000);
+    };
+    document.body.appendChild(iframe);
+    document.body.appendChild(form);
+    form.submit();
+  });
+}
   const file=$(inputId).files[0];
   if(!file)return null;
   return new Promise((resolve,reject)=>{
@@ -864,11 +918,7 @@ async function subir(){
       foto2
     };
 
-    const res=await fetch(GAS_URL,{
-      method:'POST',
-      body:JSON.stringify(payload)
-    });
-    const json=await res.json();
+    const json=await gasPost(payload);
 
     if(!json.ok){
       toast('Error: '+(json.error||'Respuesta inesperada'),'err');
