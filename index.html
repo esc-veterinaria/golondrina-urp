@@ -257,12 +257,12 @@ header{background:#fff;padding:14px 18px;display:flex;align-items:center;gap:14p
   <!-- FOTO LLEGADA -->
   <div class="sec"><div class="sh">📷 Foto de Llegada del Ave</div><div class="sb">
     <p class="nota" style="margin-bottom:12px">Fotografía del ave al momento de su ingreso al proyecto.</p>
-    <div class="foto-upload" id="fu-llegada" onclick="document.getElementById('fi-llegada').click()">
+    <label class="foto-upload" id="fu-llegada" for="fi-llegada">
       <input type="file" id="fi-llegada" accept="image/*" capture="environment" onchange="previewFoto('fi-llegada','fp-llegada','fu-llegada')">
       <div class="fu-icon">📸</div>
       <div class="fu-txt">Tomar foto o seleccionar imagen</div>
       <div class="fu-sub">JPG, PNG · Máx. 5 MB</div>
-    </div>
+    </label>
     <div class="foto-preview" id="fp-llegada">
       <img id="fimg-llegada" src="" alt="Foto llegada">
       <div class="fp-info">
@@ -424,12 +424,12 @@ header{background:#fff;padding:14px 18px;display:flex;align-items:center;gap:14p
     <div class="sep"></div>
     <p class="nota" style="font-weight:700;color:var(--az);margin-bottom:12px">📷 Foto de Liberación del Ave</p>
     <p class="nota" style="margin-bottom:12px">Fotografía del ave en el momento de su liberación.</p>
-    <div class="foto-upload" id="fu-lib" onclick="document.getElementById('fi-lib').click()">
+    <label class="foto-upload" id="fu-lib" for="fi-lib">
       <input type="file" id="fi-lib" accept="image/*" capture="environment" onchange="previewFoto('fi-lib','fp-lib','fu-lib')">
       <div class="fu-icon">🦅</div>
       <div class="fu-txt">Tomar foto o seleccionar imagen</div>
       <div class="fu-sub">JPG, PNG · Máx. 5 MB</div>
-    </div>
+    </label>
     <div class="foto-preview" id="fp-lib">
       <img id="fimg-lib" src="" alt="Foto liberación">
       <div class="fp-info">
@@ -656,14 +656,18 @@ function previewFoto(inputId,previewId,uploadId){
   const file=$(inputId).files[0];
   if(!file)return;
   if(file.size>5*1024*1024){toast('La imagen supera 5 MB','err');return;}
+  const imgId=inputId==='fi-llegada'?'fimg-llegada':'fimg-lib';
+  const nameId=inputId==='fi-llegada'?'fname-llegada':'fname-lib';
+  // Feedback inmediato
+  $(nameId).textContent=file.name;
+  $(previewId).style.display='block';
+  $(uploadId).style.opacity='0.5';
+  // Leer y mostrar miniatura
   const reader=new FileReader();
   reader.onload=e=>{
-    const imgId=inputId==='fi-llegada'?'fimg-llegada':'fimg-lib';
-    const nameId=inputId==='fi-llegada'?'fname-llegada':'fname-lib';
-    $(imgId).src=e.target.result;
-    $(nameId).textContent=file.name;
-    $(previewId).style.display='block';
-    $(uploadId).style.opacity='0.5';
+    const img=$(imgId);
+    img.src='';
+    requestAnimationFrame(()=>{img.src=e.target.result;});
   };
   reader.readAsDataURL(file);
 }
