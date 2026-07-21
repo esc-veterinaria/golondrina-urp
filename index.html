@@ -682,58 +682,56 @@ function clearFoto(inputId,previewId,uploadId,imgId,nameId){
   else{fotoLibURL='';$('furl-lib').style.display='none';}
 }
 
-// ── HELPERS APPS SCRIPT (CORS-safe) ─────────────────────────────
-// GET via JSONP (evita CORS en lectura)
-function gasGet(params){
+// ── HELPERS APPS SCRIPT ─────────────────────────────────────────
+function gasJSONP(params){
   return new Promise((resolve,reject)=>{
     const cbName='_gasCb'+Date.now();
     const url=GAS_URL+'?'+new URLSearchParams({...params,callback:cbName});
     const script=document.createElement('script');
     const timer=setTimeout(()=>{
-      delete window[cbName];document.head.removeChild(script);
-      reject(new Error('Timeout'));
-    },15000);
+      delete window[cbName];
+      try{document.head.removeChild(script);}catch(_){}
+      reject(new Error('Timeout — verifica acceso "Cualquier persona" en Apps Script'));
+    },20000);
     window[cbName]=data=>{
       clearTimeout(timer);
       delete window[cbName];
       try{document.head.removeChild(script);}catch(_){}
       resolve(data);
     };
+    script.onerror=()=>{
+      clearTimeout(timer);
+      delete window[cbName];
+      try{document.head.removeChild(script);}catch(_){}
+      // Reintentar una vez con fetch para obtener error real
+      fetch(GAS_URL+'?'+new URLSearchParams({...params,callback:'none'}))
+        .then(r=>r.text()).then(t=>reject(new Error('Servidor: '+t.substring(0,120))))
+        .catch(()=>reject(new Error('Sin conexión con el servidor')));
+    };
     script.src=url;
-    script.onerror=()=>{clearTimeout(timer);delete window[cbName];reject(new Error('Error de red'));};
     document.head.appendChild(script);
   });
 }
-// POST via fetch no-cors (fire & forget) + GET para confirmar
+
+async function gasGet(params){
+  return gasJSONP(params);
+}
+
 async function gasPost(payload){
   const data=payload.data||{};
   const foto1=payload.foto1;
   const foto2=payload.foto2;
-
-  // Paso 1: guardar solo campos de texto via JSONP GET (sin fotos)
-  const json=await gasGet({action:'save', data:JSON.stringify(data)});
-
-  // Paso 2: si hay fotos, enviarlas por separado con fetch no-cors
-  // (no-cors no devuelve respuesta pero sí llega al servidor)
+  const json=await gasJSONP({action:'save', data:JSON.stringify(data)});
   if(foto1){
-    try{
-      await fetch(GAS_URL+'?action=foto&nFicha='+encodeURIComponent(data.nFicha)+'&slot=llegada',{
-        method:'POST',
-        mode:'no-cors',
-        body:JSON.stringify(foto1)
-      });
-    }catch(_){}
+    fetch(GAS_URL+'?action=foto&nFicha='+encodeURIComponent(data.nFicha)+'&slot=llegada',{
+      method:'POST',mode:'no-cors',body:JSON.stringify(foto1)
+    }).catch(()=>{});
   }
   if(foto2){
-    try{
-      await fetch(GAS_URL+'?action=foto&nFicha='+encodeURIComponent(data.nFicha)+'&slot=liberacion',{
-        method:'POST',
-        mode:'no-cors',
-        body:JSON.stringify(foto2)
-      });
-    }catch(_){}
+    fetch(GAS_URL+'?action=foto&nFicha='+encodeURIComponent(data.nFicha)+'&slot=liberacion',{
+      method:'POST',mode:'no-cors',body:JSON.stringify(foto2)
+    }).catch(()=>{});
   }
-
   return json;
 }
 
