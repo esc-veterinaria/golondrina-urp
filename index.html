@@ -270,7 +270,7 @@ header{background:#fff;padding:14px 18px;display:flex;align-items:center;gap:14p
         <button class="fp-del" onclick="clearFoto('fi-llegada','fp-llegada','fu-llegada','fimg-llegada','fname-llegada')">Quitar</button>
       </div>
     </div>
-    <div class="foto-url-badge" id="furl-llegada">✓ Foto subida a Supabase</div>
+    <div class="foto-url-badge" id="furl-llegada">✓ Foto guardada en Google Drive</div>
   </div></div>
 
 </div><!-- /p1 -->
@@ -437,23 +437,22 @@ header{background:#fff;padding:14px 18px;display:flex;align-items:center;gap:14p
         <button class="fp-del" onclick="clearFoto('fi-lib','fp-lib','fu-lib','fimg-lib','fname-lib')">Quitar</button>
       </div>
     </div>
-    <div class="foto-url-badge" id="furl-lib">✓ Foto subida a Supabase</div>
+    <div class="foto-url-badge" id="furl-lib">✓ Foto guardada en Google Drive</div>
   </div></div>
 
 </div><!-- /p2 -->
 
 <div class="acts">
   <button class="btn bp" onclick="guardar()">💾 Guardar borrador</button>
-  <button class="btn bs" id="btn-subir" onclick="subir()">☁️ Subir a Supabase</button>
+  <button class="btn bs" id="btn-subir" onclick="subir()">☁️ Subir a Google Sheets</button>
   <button class="btn bt" onclick="genPDF()">📄 Descargar PDF</button>
 </div>
 <div id="toast"></div>
 
 <script>
 // ── SUPABASE CONFIG ──
-const SB_URL='https://ukplpbqjkdfjkflqmyqb.supabase.co';
-const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVrcGxwYnFqa2RmamtmbHFteXFiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDc1OTUsImV4cCI6MjA5MzY4MzU5NX0.Iqe4neHluRiKTcCdcyegXBrsq5rUJjg-KRp_lfeusxs';
-const SB_BUCKET='fotos-golondrinas';
+// URL del Apps Script desplegado — pegar después de implementar
+const GAS_URL='https://script.google.com/macros/s/AKfycbykP2ce85MMRAYAeDvNmdbLYj10CGSLUAV5p5nS-Kq2gaSPLCizqohjPZ_z5FRlIkup/exec';
 const PWD='URPgolos';
 
 const $=id=>document.getElementById(id);
@@ -489,22 +488,19 @@ async function checkPwd(){
   $('lock-btn').innerHTML='<span class="spinner"></span>Buscando ficha...';
 
   try{
-    const res=await fetch(`${SB_URL}/rest/v1/fichas?nFicha=eq.${encodeURIComponent(ficha)}&limit=1`,{
-      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
-    });
-    const rows=await res.json();
-    if(!rows||rows.length===0){
-      $('pwd-err').textContent=`Ficha "${ficha}" no encontrada en la base de datos.`;
+    const res=await fetch(`${GAS_URL}?action=get&nFicha=${encodeURIComponent(ficha)}`);
+    const json=await res.json();
+    if(!json.ok){
+      $('pwd-err').textContent=json.error||`Ficha "${ficha}" no encontrada.`;
       $('lock-btn').disabled=false;$('lock-btn').textContent='Cargar registro';
       return;
     }
-    // Cargar datos
-    loadFromDB(rows[0]);
+    loadFromDB(json.data);
     p2ok=true;p2mode='update';
     $('lock').style.display='none';
     $('t-p2').innerHTML='🔬 Parte 2 · Evaluación Veterinaria ✓';
     $('pwd').value='';$('pwd-ficha').value='';
-    $('btn-subir').textContent='☁️ Actualizar en Supabase';
+    $('btn-subir').textContent='☁️ Actualizar en Google Sheets';
     swt('p2');
     toast('Registro '+ficha+' cargado correctamente','ok');
   }catch(e){
@@ -683,23 +679,19 @@ function clearFoto(inputId,previewId,uploadId,imgId,nameId){
   else{fotoLibURL='';$('furl-lib').style.display='none';}
 }
 
-async function uploadFoto(inputId,nombreBase){
+// Convierte File a base64 para enviarlo al Apps Script
+async function fotoABase64(inputId){
   const file=$(inputId).files[0];
   if(!file)return null;
-  const ext=file.name.split('.').pop();
-  const path=`${nombreBase}.${ext}`;
-  const res=await fetch(`${SB_URL}/storage/v1/object/${SB_BUCKET}/${path}`,{
-    method:'POST',
-    headers:{
-      'apikey':SB_KEY,
-      'Authorization':'Bearer '+SB_KEY,
-      'Content-Type':file.type,
-      'x-upsert':'true'
-    },
-    body:file
+  return new Promise((resolve,reject)=>{
+    const r=new FileReader();
+    r.onload=e=>{
+      const b64=e.target.result.split(',')[1];
+      resolve({base64:b64,mime:file.type,name:file.name});
+    };
+    r.onerror=reject;
+    r.readAsDataURL(file);
   });
-  if(!res.ok)throw new Error('Error subiendo foto: '+await res.text());
-  return `${SB_URL}/storage/v1/object/public/${SB_BUCKET}/${path}`;
 }
 
 // ── REHAB ROWS ──
@@ -806,7 +798,7 @@ function loadFromDB(d){
   if(d.fotoLlegada){
     fotoLlegadaURL=d.fotoLlegada;
     $('fimg-llegada').src=d.fotoLlegada;
-    $('fname-llegada').textContent='Foto guardada en Supabase';
+    $('fname-llegada').textContent='Foto guardada en Google Drive';
     $('fp-llegada').style.display='block';
     $('fu-llegada').style.opacity='0.5';
     $('furl-llegada').style.display='block';
@@ -815,7 +807,7 @@ function loadFromDB(d){
   if(d.fotoLiberacion){
     fotoLibURL=d.fotoLiberacion;
     $('fimg-lib').src=d.fotoLiberacion;
-    $('fname-lib').textContent='Foto guardada en Supabase';
+    $('fname-lib').textContent='Foto guardada en Google Drive';
     $('fp-lib').style.display='block';
     $('fu-lib').style.opacity='0.5';
     $('furl-lib').style.display='block';
@@ -840,66 +832,72 @@ function guardar(){
   toast('Borrador guardado en este dispositivo','ok');
 }
 
-// ── SUBIR A SUPABASE ──
+// ── SUBIR A GOOGLE SHEETS ──
 async function subir(){
   const d=collect();
   if(!d.nFicha){toast('Ingresa el N° de ficha primero','err');return;}
+  if(GAS_URL==='PEGA_AQUI_LA_URL_DEL_APPS_SCRIPT'){
+    toast('Configura la URL del Apps Script en el código','err');return;
+  }
 
   const btn=$('btn-subir');
   btn.disabled=true;
   btn.innerHTML='<span class="spinner"></span>Subiendo...';
 
   try{
-    // Subir fotos si hay nuevas seleccionadas
+    // Preparar fotos en base64 si hay nuevas seleccionadas
+    let foto1=null,foto2=null;
     if($('fi-llegada').files[0]){
-      toast('Subiendo foto de llegada...','');
-      fotoLlegadaURL=await uploadFoto('fi-llegada',d.nFicha+'_llegada');
-      $('furl-llegada').style.display='block';
+      toast('Preparando foto de llegada...','');
+      foto1=await fotoABase64('fi-llegada');
     }
     if($('fi-lib').files[0]){
-      toast('Subiendo foto de liberación...','');
-      fotoLibURL=await uploadFoto('fi-lib',d.nFicha+'_liberacion');
-      $('furl-lib').style.display='block';
+      foto2=await fotoABase64('fi-lib');
     }
 
-    const payload={...collect(),fotoLlegada:fotoLlegadaURL,fotoLiberacion:fotoLibURL};
+    toast('Subiendo a Google Sheets...','');
 
-    let res,msg;
-    if(p2mode==='update'){
-      res=await fetch(`${SB_URL}/rest/v1/fichas?nFicha=eq.${encodeURIComponent(d.nFicha)}`,{
-        method:'PATCH',
-        headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
-        body:JSON.stringify(payload)
-      });
-      msg='✓ Registro actualizado en Supabase';
-    }else{
-      res=await fetch(`${SB_URL}/rest/v1/fichas`,{
-        method:'POST',
-        headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
-        body:JSON.stringify(payload)
-      });
-      msg='✓ Registro guardado en Supabase';
-    }
+    const payload={
+      action:'save',
+      data:{...d,fotoLlegada:fotoLlegadaURL,fotoLiberacion:fotoLibURL},
+      foto1,
+      foto2
+    };
 
-    if(!res.ok){
-      const err=await res.text();
-      // Error de duplicado (nFicha unique)
-      if(err.includes('duplicate')||err.includes('unique')){
-        toast('Ya existe una ficha con ese número. Usa Parte 2 para editarla.','err');
-      }else{
-        toast('Error: '+err,'err');
-      }
-      btn.disabled=false;btn.innerHTML=p2mode==='update'?'☁️ Actualizar en Supabase':'☁️ Subir a Supabase';
+    const res=await fetch(GAS_URL,{
+      method:'POST',
+      body:JSON.stringify(payload)
+    });
+    const json=await res.json();
+
+    if(!json.ok){
+      toast('Error: '+(json.error||'Respuesta inesperada'),'err');
+      btn.disabled=false;
+      btn.innerHTML=p2mode==='update'?'☁️ Actualizar en Google Sheets':'☁️ Subir a Google Sheets';
       return;
     }
 
+    // Si el Apps Script devuelve URLs de Drive, actualizar variables locales
+    if(json.fotoLlegada){
+      fotoLlegadaURL=json.fotoLlegada;
+      $('furl-llegada').style.display='block';
+    }
+    if(json.fotoLiberacion){
+      fotoLibURL=json.fotoLiberacion;
+      $('furl-lib').style.display='block';
+    }
+
     guardar();
+    const msg=json.action==='updated'?'✓ Registro actualizado en Google Sheets':'✓ Registro guardado en Google Sheets';
     toast(msg,'ok');
-    $('estado').textContent='☁ '+(p2mode==='update'?'Actualizado':'Subido');
+    $('estado').textContent='☁ '+(json.action==='updated'?'Actualizado':'Subido');
+    p2mode='update';
+    btn.innerHTML='☁️ Actualizar en Google Sheets';
   }catch(e){
-    toast('Error de conexión con Supabase.','err');
+    toast('Error: '+(e.message||'Sin conexión'),'err');
   }
-  btn.disabled=false;btn.innerHTML=p2mode==='update'?'☁️ Actualizar en Supabase':'☁️ Subir a Supabase';
+  btn.disabled=false;
+  if(btn.innerHTML.includes('spinner'))btn.innerHTML=p2mode==='update'?'☁️ Actualizar en Google Sheets':'☁️ Subir a Google Sheets';
 }
 
 // ── PDF ──
