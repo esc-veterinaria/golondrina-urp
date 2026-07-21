@@ -452,7 +452,7 @@ header{background:#fff;padding:14px 18px;display:flex;align-items:center;gap:14p
 <script>
 // ── SUPABASE CONFIG ──
 // URL del Apps Script desplegado — pegar después de implementar
-const GAS_URL='https://script.google.com/macros/s/AKfycbzy8KUONuE288YYAOuvCqtZrj6H9XPPCtLd4d06rPWRnRVt_fJ8njTJHGYHkXNukIW8/exec';
+const GAS_URL='https://script.google.com/macros/s/AKfycbyBWPI_wIl4kE8xJ6papIMaNOYEFolA36wYxMoZJwRUvCCykUzbbhwGFLFI1ow-_auI/exec';
 const PWD='URPgolos';
 
 const $=id=>document.getElementById(id);
@@ -683,45 +683,21 @@ function clearFoto(inputId,previewId,uploadId,imgId,nameId){
 }
 
 // ── HELPERS APPS SCRIPT ─────────────────────────────────────────
-function gasJSONP(params){
-  return new Promise((resolve,reject)=>{
-    const cbName='_gasCb'+Date.now();
-    const url=GAS_URL+'?'+new URLSearchParams({...params,callback:cbName});
-    const script=document.createElement('script');
-    const timer=setTimeout(()=>{
-      delete window[cbName];
-      try{document.head.removeChild(script);}catch(_){}
-      reject(new Error('Timeout — verifica acceso "Cualquier persona" en Apps Script'));
-    },20000);
-    window[cbName]=data=>{
-      clearTimeout(timer);
-      delete window[cbName];
-      try{document.head.removeChild(script);}catch(_){}
-      resolve(data);
-    };
-    script.onerror=()=>{
-      clearTimeout(timer);
-      delete window[cbName];
-      try{document.head.removeChild(script);}catch(_){}
-      // Reintentar una vez con fetch para obtener error real
-      fetch(GAS_URL+'?'+new URLSearchParams({...params,callback:'none'}))
-        .then(r=>r.text()).then(t=>reject(new Error('Servidor: '+t.substring(0,120))))
-        .catch(()=>reject(new Error('Sin conexión con el servidor')));
-    };
-    script.src=url;
-    document.head.appendChild(script);
-  });
-}
-
 async function gasGet(params){
-  return gasJSONP(params);
+  const url=GAS_URL+'?'+new URLSearchParams(params);
+  const res=await fetch(url,{redirect:'follow'});
+  const text=await res.text();
+  // HtmlService devuelve HTML con el JSON adentro — extraerlo
+  const match=text.match(/^\s*[\[{].*[\]}]\s*$/s)||text.match(/>([\[{].*[\]}])</s);
+  const json=match?match[1]||match[0]:text;
+  return JSON.parse(json.trim());
 }
 
 async function gasPost(payload){
   const data=payload.data||{};
   const foto1=payload.foto1;
   const foto2=payload.foto2;
-  const json=await gasJSONP({action:'save', data:JSON.stringify(data)});
+  const json=await gasGet({action:'save',data:JSON.stringify(data)});
   if(foto1){
     fetch(GAS_URL+'?action=foto&nFicha='+encodeURIComponent(data.nFicha)+'&slot=llegada',{
       method:'POST',mode:'no-cors',body:JSON.stringify(foto1)
@@ -734,7 +710,6 @@ async function gasPost(payload){
   }
   return json;
 }
-
 // Convierte File a base64 para enviarlo al Apps Script
 async function fotoABase64(inputId){
   const file=$(inputId).files[0];
