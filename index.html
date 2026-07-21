@@ -452,7 +452,7 @@ header{background:#fff;padding:14px 18px;display:flex;align-items:center;gap:14p
 <script>
 // ── SUPABASE CONFIG ──
 // URL del Apps Script desplegado — pegar después de implementar
-const GAS_URL='https://script.google.com/macros/s/AKfycbzJDOtQgh-4WnYdkZQijpGNBVXw8FFwG8nLqSsTRJpkAqBeMXWhLN-r2-7L6PT18RPK/exec';
+const GAS_URL='https://script.google.com/macros/s/AKfycbwdrHNWpM3kdMZBBiQcs6nXyqhR5GZJUtJsgUCxg_KLj8GTa985654WXO93HpNeIsI/exec';
 const PWD='URPgolos';
 
 const $=id=>document.getElementById(id);
@@ -702,23 +702,35 @@ function gasGet(params){
 }
 // POST via fetch no-cors (fire & forget) + GET para confirmar
 async function gasPost(payload){
-  // 1. Enviar datos por GET con JSONP (más confiable que POST desde browser)
-  //    Si los datos son muy grandes (fotos), se envían en dos pasos
   const data=payload.data||{};
   const foto1=payload.foto1;
   const foto2=payload.foto2;
 
-  // Paso 1: guardar campos de texto via JSONP GET
-  const params={
-    action:'save',
-    data:JSON.stringify(data),
-    callback:'' // se sobreescribe en gasGet
-  };
-  // Si hay fotos, incluirlas en el mismo payload (Apps Script las recibe por GET param)
-  if(foto1)params.foto1=JSON.stringify(foto1);
-  if(foto2)params.foto2=JSON.stringify(foto2);
+  // Paso 1: guardar solo campos de texto via JSONP GET (sin fotos)
+  const json=await gasGet({action:'save', data:JSON.stringify(data)});
 
-  return gasGet(params);
+  // Paso 2: si hay fotos, enviarlas por separado con fetch no-cors
+  // (no-cors no devuelve respuesta pero sí llega al servidor)
+  if(foto1){
+    try{
+      await fetch(GAS_URL+'?action=foto&nFicha='+encodeURIComponent(data.nFicha)+'&slot=llegada',{
+        method:'POST',
+        mode:'no-cors',
+        body:JSON.stringify(foto1)
+      });
+    }catch(_){}
+  }
+  if(foto2){
+    try{
+      await fetch(GAS_URL+'?action=foto&nFicha='+encodeURIComponent(data.nFicha)+'&slot=liberacion',{
+        method:'POST',
+        mode:'no-cors',
+        body:JSON.stringify(foto2)
+      });
+    }catch(_){}
+  }
+
+  return json;
 }
 
 // Convierte File a base64 para enviarlo al Apps Script
