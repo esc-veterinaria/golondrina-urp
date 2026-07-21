@@ -452,7 +452,7 @@ header{background:#fff;padding:14px 18px;display:flex;align-items:center;gap:14p
 <script>
 // ── SUPABASE CONFIG ──
 // URL del Apps Script desplegado — pegar después de implementar
-const GAS_URL='https://script.google.com/macros/s/AKfycbxueq6IO5oFu2tP7l_-4TMHwbsWpjsf6Vqdjt9DTNCrKaslFVutCASoSQx28LITsKYG/exec';
+const GAS_URL='https://script.google.com/macros/s/AKfycbzJDOtQgh-4WnYdkZQijpGNBVXw8FFwG8nLqSsTRJpkAqBeMXWhLN-r2-7L6PT18RPK/exec';
 const PWD='URPgolos';
 
 const $=id=>document.getElementById(id);
@@ -700,40 +700,25 @@ function gasGet(params){
     document.head.appendChild(script);
   });
 }
-// POST via form submit oculto + JSONP para recibir respuesta
-function gasPost(payload){
-  return new Promise((resolve,reject)=>{
-    const cbName='_gasCb'+Date.now();
-    const timer=setTimeout(()=>{
-      delete window[cbName];reject(new Error('Timeout'));
-    },60000);
-    window[cbName]=data=>{
-      clearTimeout(timer);delete window[cbName];resolve(data);
-    };
-    const form=document.createElement('form');
-    form.method='POST';
-    form.action=GAS_URL+'?callback='+cbName;
-    form.target='_gas_iframe_'+cbName;
-    form.style.display='none';
-    const inp=document.createElement('input');
-    inp.type='hidden';inp.name='payload';inp.value=JSON.stringify(payload);
-    form.appendChild(inp);
-    const iframe=document.createElement('iframe');
-    iframe.name=form.target;iframe.style.display='none';
-    iframe.onload=()=>{
-      // El iframe cargó — si el callback no fue llamado en 2s, algo falló
-      setTimeout(()=>{
-        if(window[cbName]){
-          clearTimeout(timer);delete window[cbName];
-          try{document.body.removeChild(iframe);document.body.removeChild(form);}catch(_){}
-          reject(new Error('Sin respuesta del servidor'));
-        }
-      },2000);
-    };
-    document.body.appendChild(iframe);
-    document.body.appendChild(form);
-    form.submit();
-  });
+// POST via fetch no-cors (fire & forget) + GET para confirmar
+async function gasPost(payload){
+  // 1. Enviar datos por GET con JSONP (más confiable que POST desde browser)
+  //    Si los datos son muy grandes (fotos), se envían en dos pasos
+  const data=payload.data||{};
+  const foto1=payload.foto1;
+  const foto2=payload.foto2;
+
+  // Paso 1: guardar campos de texto via JSONP GET
+  const params={
+    action:'save',
+    data:JSON.stringify(data),
+    callback:'' // se sobreescribe en gasGet
+  };
+  // Si hay fotos, incluirlas en el mismo payload (Apps Script las recibe por GET param)
+  if(foto1)params.foto1=JSON.stringify(foto1);
+  if(foto2)params.foto2=JSON.stringify(foto2);
+
+  return gasGet(params);
 }
 
 // Convierte File a base64 para enviarlo al Apps Script
