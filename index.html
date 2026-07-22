@@ -683,30 +683,13 @@ function clearFoto(inputId,previewId,uploadId,imgId,nameId){
 }
 
 // ── HELPERS APPS SCRIPT ─────────────────────────────────────────
-// Resuelve la URL final de googleusercontent.com (sin CORS)
-// Apps Script redirige script.google.com → googleusercontent.com
-// La URL resuelta SÍ acepta <script> tags cross-origin
-let _gasBase='';
-async function gasResolve(){
-  if(_gasBase) return _gasBase;
-  // fetch no-cors solo para forzar la redirección y capturar la URL final
-  try{
-    const r=await fetch(GAS_URL+'?action=ping',{mode:'no-cors',redirect:'follow'});
-    // r.url contiene la URL resuelta en algunos browsers
-    if(r.url && r.url.includes('googleusercontent'))_gasBase=r.url.split('?')[0];
-  }catch(_){}
-  if(!_gasBase){
-    // Fallback: construir la URL de googleusercontent manualmente
-    // Apps Script siempre redirige al mismo dominio
-    _gasBase=GAS_URL.replace('script.google.com/macros/s/','script.googleusercontent.com/macros/echo?user_content_key=').replace('/exec','&lib=');
-  }
-  return _gasBase;
-}
+// URL resuelta de googleusercontent.com — acepta JSONP cross-origin
+const GAS_ECHO='https://script.googleusercontent.com/macros/echo?user_content_key=AUkAhnRSN0-q1OEnssMYBnMfNGzyQOS9W2PnHOKdYIeLo7gThM3ObyrhRVWhngahxAoxyYOuryxIK7pTxo0Mpqr-IG8YOOgrBtOLK31ivNGrGLNjCbK9OaUTpQgBfuyBl0DD3_pMQI8h0r1hlp6fhNq3DWTCUjTLVj4ebOgmOBNnmWkOq0MCaKT3E3Jh9UAw_8GyaFlUwoR-zHJw2kH35Qt0E2kzM2FLx_Aj73Ois-5-tDHucPRopfFhHb5xXc-S2vNEVlyqpRv1FXcn3sMCsop0z7WUpOwKl1nBQrqQHhxy&lib=MD9itMob2GJRyp3kIQwnUBwyh_aEE2jkd';
 
-function gasJSONP(url){
+function gasJSONP(params){
   return new Promise((resolve,reject)=>{
     const cb='_cb'+Date.now();
-    const sep=url.includes('?')?'&':'?';
+    const url=GAS_ECHO+'&callback='+cb+'&'+new URLSearchParams(params);
     const s=document.createElement('script');
     const t=setTimeout(()=>{
       delete window[cb];
@@ -721,27 +704,16 @@ function gasJSONP(url){
     s.onerror=()=>{
       clearTimeout(t);delete window[cb];
       try{document.head.removeChild(s);}catch(_){}
-      reject(new Error('Error cargando script'));
+      reject(new Error('Error de conexión'));
     };
-    s.src=url+sep+'callback='+cb;
+    s.src=url;
     document.head.appendChild(s);
   });
 }
 
 async function gasGet(params){
-  // Intentar con fetch directo primero (funciona si CORS está habilitado)
-  try{
-    const url=GAS_URL+'?'+new URLSearchParams(params);
-    const res=await fetch(url,{redirect:'follow',mode:'cors'});
-    if(res.ok){
-      const text=await res.text();
-      return JSON.parse(text);
-    }
-  }catch(_){}
-  // Fallback: JSONP con la URL del Apps Script directo
-  return gasJSONP(GAS_URL+'?'+new URLSearchParams(params));
+  return gasJSONP(params);
 }
-
 async function gasPost(payload){
   const data=payload.data||{};
   const foto1=payload.foto1;
