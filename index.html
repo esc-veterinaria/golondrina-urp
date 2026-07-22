@@ -452,7 +452,7 @@ header{background:#fff;padding:14px 18px;display:flex;align-items:center;gap:14p
 <script>
 // ── SUPABASE CONFIG ──
 // URL del Apps Script desplegado — pegar después de implementar
-const GAS_URL='https://script.google.com/macros/s/AKfycbyBWPI_wIl4kE8xJ6papIMaNOYEFolA36wYxMoZJwRUvCCykUzbbhwGFLFI1ow-_auI/exec';
+const GAS_URL='https://script.google.com/macros/s/AKfycbxOvu9ycH19GP4KMD18C11-Gqea1aZKsdXJKKHhSCS4gavWil7zeEqSeDnuN5mVxgF_/exec';
 const PWD='URPgolos';
 
 const $=id=>document.getElementById(id);
@@ -686,11 +686,8 @@ function clearFoto(inputId,previewId,uploadId,imgId,nameId){
 async function gasGet(params){
   const url=GAS_URL+'?'+new URLSearchParams(params);
   const res=await fetch(url,{redirect:'follow'});
-  const text=await res.text();
-  // HtmlService devuelve HTML con el JSON adentro — extraerlo
-  const match=text.match(/^\s*[\[{].*[\]}]\s*$/s)||text.match(/>([\[{].*[\]}])</s);
-  const json=match?match[1]||match[0]:text;
-  return JSON.parse(json.trim());
+  if(!res.ok) throw new Error('HTTP '+res.status);
+  return res.json();
 }
 
 async function gasPost(payload){
