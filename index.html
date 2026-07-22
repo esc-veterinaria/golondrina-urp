@@ -684,10 +684,13 @@ function clearFoto(inputId,previewId,uploadId,imgId,nameId){
 
 // ── HELPERS APPS SCRIPT ─────────────────────────────────────────
 async function gasGet(params){
-  const url=GAS_URL+'?'+new URLSearchParams(params);
-  const res=await fetch(url,{redirect:'follow'});
+  const target=GAS_URL+'?'+new URLSearchParams(params);
+  const proxy='https://corsproxy.io/?url='+encodeURIComponent(target);
+  const res=await fetch(proxy);
   if(!res.ok) throw new Error('HTTP '+res.status);
-  return res.json();
+  const text=await res.text();
+  try{ return JSON.parse(text); }
+  catch(e){ throw new Error('Respuesta inválida: '+text.substring(0,100)); }
 }
 
 async function gasPost(payload){
