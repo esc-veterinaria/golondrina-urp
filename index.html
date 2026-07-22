@@ -244,11 +244,11 @@ header{background:#fff;padding:14px 18px;display:flex;align-items:center;gap:14p
     <div class="sep"></div>
     <div class="f"><label>¿Cómo se enteró del proyecto?</label>
       <div class="cg" id="ceg">
-        <label class="co" onclick="tC(this)"><input type="checkbox" value="Redes sociales"> Redes sociales</label>
-        <label class="co" onclick="tC(this)"><input type="checkbox" value="Google"> Google</label>
-        <label class="co" onclick="tC(this)"><input type="checkbox" value="Estudiantes/egresados URP"> Est./egresados URP</label>
-        <label class="co" onclick="tC(this)"><input type="checkbox" value="SERFOR"> SERFOR</label>
-        <label class="co" onclick="tC(this)"><input type="checkbox" value="Otro"> Otro</label>
+        <label class="co" onclick="tC(this,event)"><input type="checkbox" value="Redes sociales"> Redes sociales</label>
+        <label class="co" onclick="tC(this,event)"><input type="checkbox" value="Google"> Google</label>
+        <label class="co" onclick="tC(this,event)"><input type="checkbox" value="Estudiantes/egresados URP"> Est./egresados URP</label>
+        <label class="co" onclick="tC(this,event)"><input type="checkbox" value="SERFOR"> SERFOR</label>
+        <label class="co" onclick="tC(this,event)"><input type="checkbox" value="Otro"> Otro</label>
       </div>
       <input type="text" id="ce-otro" placeholder="Especificar si marcó 'Otro'..." style="margin-top:8px">
     </div>
@@ -452,7 +452,7 @@ header{background:#fff;padding:14px 18px;display:flex;align-items:center;gap:14p
 <script>
 // ── SUPABASE CONFIG ──
 // URL del Apps Script desplegado — pegar después de implementar
-const GAS_URL='https://script.google.com/macros/s/AKfycbykPYvjhMOG2UgLbSdWpBCUTJ5zpxH8zFdNtoVEP7MlzeTvRRFvYBivGqoHV9GVvp3s/exec';
+const GAS_URL='https://script.google.com/macros/s/AKfycbytHnD99YCi-_9qnO5KRTKAbGn7tOc1oQOYzQns77cJzk_N3Z5cUF_KD1WNMO5qUK38/exec';
 const PWD='URPgolos';
 
 const $=id=>document.getElementById(id);
@@ -519,7 +519,7 @@ function sRval(nm,val){
     else r.closest('.ro').classList.remove('sel');
   });
 }
-function tC(el){el.classList.toggle('sel');el.querySelector('input').checked=el.classList.contains('sel');}
+function tC(el,ev){if(ev&&ev.target.tagName==='INPUT')return;el.classList.toggle('sel');el.querySelector('input').checked=el.classList.contains('sel');}
 function selEsp(el){
   document.querySelectorAll('.ec').forEach(c=>c.classList.remove('sel'));
   el.classList.add('sel');
